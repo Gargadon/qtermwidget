@@ -322,6 +322,8 @@ void QTermWidget::init(int startnow)
         dirs.append(QString::fromLatin1("/usr/share"));
     }
     dirs.append(QFile::decodeName(TRANSLATIONS_DIR));
+    dirs.append(QCoreApplication::applicationDirPath() + QLatin1String("/translations"));
+    dirs.append(QCoreApplication::applicationDirPath() + QLatin1String("/../Resources/translations"));
 
     m_translator = new QTranslator(this);
 
