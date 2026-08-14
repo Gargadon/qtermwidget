@@ -27,9 +27,18 @@
 #include "BlockArray.h"
 
 // System
+#ifdef Q_OS_WIN
+#include <io.h>
+#include <fcntl.h>
+#include <cstdlib>
+static int getpagesize() {
+    return 4096;
+}
+#else
 #include <sys/mman.h>
 #include <sys/param.h>
 #include <unistd.h>
+#endif
 #include <cstdio>
 
 
@@ -151,6 +160,23 @@ const Block * BlockArray::at(size_t i)
     Q_ASSERT(j < size);
     unmap();
 
+#ifdef Q_OS_WIN
+    lastmap = static_cast<Block*>(malloc(blocksize));
+    if (!lastmap) {
+        return nullptr;
+    }
+    if (lseek(ion, static_cast<long>(j * blocksize), SEEK_SET) < 0) {
+        free(lastmap);
+        lastmap = nullptr;
+        return nullptr;
+    }
+    const int r = read(ion, lastmap, blocksize);
+    if (r != static_cast<int>(blocksize)) {
+        free(lastmap);
+        lastmap = nullptr;
+        return nullptr;
+    }
+#else
     Block * block = (Block *)mmap(nullptr, blocksize, PROT_READ, MAP_PRIVATE, ion, j * blocksize);
 
     if (block == (Block *)-1) {
@@ -159,18 +185,23 @@ const Block * BlockArray::at(size_t i)
     }
 
     lastmap = block;
+#endif
     lastmap_index = i;
 
-    return block;
+    return lastmap;
 }
 
 void BlockArray::unmap()
 {
     if (lastmap) {
+#ifdef Q_OS_WIN
+        free(lastmap);
+#else
         int res = munmap((char *)lastmap, blocksize);
         if (res < 0) {
             perror("munmap");
         }
+#endif
     }
     lastmap = nullptr;
     lastmap_index = size_t(-1);
@@ -230,8 +261,12 @@ bool BlockArray::setHistorySize(size_t newsize)
         return false;
     } else {
         decreaseBuffer(newsize);
+#ifdef Q_OS_WIN
+        _chsize(ion, static_cast<long>(length * blocksize));
+#else
         int res = ftruncate(ion, length*blocksize);
         Q_UNUSED (res);
+#endif
         size = newsize;
 
         return true;

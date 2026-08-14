@@ -66,6 +66,14 @@ public:
      */
     void startTerminalTeletype() override;
 
+    /**
+     * Start the widget in "external" mode (no PTY, e.g. Windows/ConPTY).
+     * Keystrokes are emitted via the sendData() signal; remote output must be
+     * fed with feedData().
+     */
+    void startExternal();
+    void feedData(const QByteArray& data);
+
     int getShellPID() override;
 
     /**

@@ -196,7 +196,7 @@ QPoint ScreenWindow::cursorPosition() const
 
 int ScreenWindow::currentLine() const
 {
-    return qBound(0,_currentLine,lineCount()-windowLines());
+    return qBound(0,_currentLine,qMax(0,lineCount()-windowLines()));
 }
 
 void ScreenWindow::scrollBy( RelativeScrollMode mode , int amount )
@@ -218,7 +218,7 @@ bool ScreenWindow::atEndOfOutput() const
 
 void ScreenWindow::scrollTo( int line )
 {
-    int maxCurrentLineNumber = lineCount() - windowLines();
+    int maxCurrentLineNumber = qMax(0, lineCount() - windowLines());
     line = qBound(0,line,maxCurrentLineNumber);
 
     const int delta = line - _currentLine;

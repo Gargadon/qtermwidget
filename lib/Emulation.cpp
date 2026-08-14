@@ -25,7 +25,9 @@
 // System
 #include <cstdio>
 #include <cstdlib>
+#ifndef Q_OS_WIN
 #include <unistd.h>
+#endif
 #include <string>
 
 // Qt

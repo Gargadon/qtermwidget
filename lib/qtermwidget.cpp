@@ -289,6 +289,24 @@ void QTermWidget::startTerminalTeletype()
              this, SIGNAL(sendData(const char *,int)) );
 }
 
+void QTermWidget::startExternal()
+{
+    if ( m_impl->m_session->isRunning() ) {
+        return;
+    }
+    // No PTY: route keystrokes out and feed output in via feedData().
+    connect( m_impl->m_session->emulation(), SIGNAL(sendData(const char *,int)),
+             this, SIGNAL(sendData(const char *,int)) );
+}
+
+void QTermWidget::feedData(const QByteArray& data)
+{
+    if (data.isEmpty()) {
+        return;
+    }
+    m_impl->m_session->emulation()->receiveData(data.constData(), data.size());
+}
+
 void QTermWidget::init(int startnow)
 {
     m_layout = new QVBoxLayout();

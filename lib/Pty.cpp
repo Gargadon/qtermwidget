@@ -29,6 +29,45 @@
 // Own
 #include "Pty.h"
 
+#ifdef Q_OS_WIN
+
+// Windows stub: no KPty. Pure data router used with ConPTY (external I/O).
+using namespace Konsole;
+
+Pty::Pty(QObject* parent) : QObject(parent) {
+    _windowColumns = 0;
+    _windowLines = 0;
+    _eraseChar = 0;
+}
+
+Pty::Pty(int ptyMasterFd, QObject* parent) : QObject(parent) {
+    Q_UNUSED(ptyMasterFd);
+    _windowColumns = 0;
+    _windowLines = 0;
+    _eraseChar = 0;
+}
+
+Pty::~Pty() {}
+
+void Pty::setWindowSize(int lines, int cols) {
+    _windowColumns = cols;
+    _windowLines = lines;
+}
+
+QSize Pty::windowSize() const {
+    return {_windowColumns, _windowLines};
+}
+
+void Pty::setErase(char erase) {
+    _eraseChar = erase;
+}
+
+char Pty::erase() const {
+    return _eraseChar;
+}
+
+#else // Q_OS_WIN
+
 // System
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -383,4 +422,7 @@ void Pty::closePty()
 {
     pty()->close();
 }
+
+
+#endif // Q_OS_WIN
 

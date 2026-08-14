@@ -26,7 +26,9 @@
 
 // Standard
 #include <cstdio>
+#ifndef Q_OS_WIN
 #include <unistd.h>
+#endif
 
 // Qt
 #include <QEvent>
