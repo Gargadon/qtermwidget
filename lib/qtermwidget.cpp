@@ -32,6 +32,7 @@
 #include "KeyboardTranslator.h"
 #include "ColorScheme.h"
 #include "SearchBar.h"
+#include "Pty.h"
 #include "qtermwidget.h"
 
 #ifdef Q_OS_MACOS
@@ -294,9 +295,12 @@ void QTermWidget::startExternal()
     if ( m_impl->m_session->isRunning() ) {
         return;
     }
-    // No PTY: route keystrokes out and feed output in via feedData().
+    // No local PTY: disconnect internal Pty process so it doesn't perform local echo,
+    // and route keystrokes out via sendData() to external recipient.
+    disconnect( m_impl->m_session->emulation(), SIGNAL(sendData(const char *,int)),
+                m_impl->m_session->shellProcess(), SLOT(sendData(const char *,int)) );
     connect( m_impl->m_session->emulation(), SIGNAL(sendData(const char *,int)),
-             this, SIGNAL(sendData(const char *,int)) );
+             this, SIGNAL(sendData(const char *,int)), Qt::UniqueConnection );
 }
 
 void QTermWidget::feedData(const QByteArray& data)

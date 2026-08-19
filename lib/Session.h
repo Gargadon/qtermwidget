@@ -380,6 +380,9 @@ public:
      */
     int getPtySlaveFd() const;
 
+    /** Returns internal Pty process pointer */
+    Pty* shellProcess() const { return _shellProcess; }
+
 public slots:
 
     /**
