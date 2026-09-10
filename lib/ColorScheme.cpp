@@ -335,7 +335,7 @@ void ColorScheme::readColorEntry(QSettings * s , int index)
     ColorEntry entry;
 
     QVariant colorValue = s->value(QLatin1String("Color"));
-    QStringView colorStr;
+    QString colorStr;
     int r = 0; int g = 0; int b = 0;
     bool ok = false;
     // XXX: Undocumented(?) QSettings behavior: values with commas are parsed
@@ -362,12 +362,12 @@ void ColorScheme::readColorEntry(QSettings * s , int index)
         colorStr = colorValue.toString();
         static const QRegularExpression hexColorPattern{"^#[0-9a-f]{6}$"_L1,
                                            QRegularExpression::CaseInsensitiveOption};
-        if (hexColorPattern.matchView(colorStr).hasMatch())
+        if (hexColorPattern.match(colorStr).hasMatch())
         {
-            // If we got a match, colorStr size is 7
-            r = colorStr.sliced(1, 2).toInt(nullptr, 16);
-            g = colorStr.sliced(3, 2).toInt(nullptr, 16);
-            b = colorStr.sliced(5, 2).toInt(nullptr, 16);
+            // Parsing is always ok as already matched by the regexp
+            r = colorStr.mid(1, 2).toInt(nullptr, 16);
+            g = colorStr.mid(3, 2).toInt(nullptr, 16);
+            b = colorStr.mid(5, 2).toInt(nullptr, 16);
             ok = true;
         }
     }
