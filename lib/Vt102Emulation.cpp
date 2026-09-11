@@ -190,8 +190,14 @@ void Vt102Emulation::addArgument()
 
 void Vt102Emulation::addToCurrentToken(wchar_t cc)
 {
-  tokenBuffer[tokenBufferPos] = cc;
-  tokenBufferPos = qMin(tokenBufferPos+1,MAX_TOKEN_LENGTH-1);
+  // Keep the terminator slot reserved. The previous implementation wrote
+  // once at tokenBuffer[MAX_TOKEN_LENGTH] when a long OSC/title sequence was
+  // received, corrupting adjacent object memory.
+  if (tokenBufferPos < MAX_TOKEN_LENGTH - 1)
+  {
+    tokenBuffer[tokenBufferPos] = cc;
+    ++tokenBufferPos;
+  }
 }
 
 // Character Class flags used while decoding
@@ -1128,6 +1134,13 @@ void Vt102Emulation::sendText( const QString& text )
 void Vt102Emulation::sendKeyEvent(QKeyEvent* event, bool fromPaste)
 {
     Qt::KeyboardModifiers modifiers = event->modifiers();
+    // Windows reports AltGr as Ctrl+Alt.  Treating those flags independently
+    // turns printable layout characters (for example '\\' on a Latin
+    // American keyboard) into Ctrl sequences and may prepend Escape.
+    const bool altGr = (modifiers & Qt::GroupSwitchModifier) ||
+                       ((modifiers & Qt::ControlModifier) &&
+                        (modifiers & Qt::AltModifier) &&
+                        !event->text().isEmpty());
     KeyboardTranslator::States states = KeyboardTranslator::NoState;
 
     // get current states
@@ -1139,7 +1152,7 @@ void Vt102Emulation::sendKeyEvent(QKeyEvent* event, bool fromPaste)
         states |= KeyboardTranslator::ApplicationKeypadState;
 
     // check flow control state
-    if (modifiers & KeyboardTranslator::CTRL_MOD)
+    if ((modifiers & KeyboardTranslator::CTRL_MOD) && !altGr)
     {
         switch (event->key()) {
         case Qt::Key_S:
@@ -1172,7 +1185,7 @@ void Vt102Emulation::sendKeyEvent(QKeyEvent* event, bool fromPaste)
         bool wantsAnyModifier = entry.state() &
                                 entry.stateMask() & KeyboardTranslator::AnyModifierState;
 
-        if ( modifiers & Qt::AltModifier && !(wantsAltModifier || wantsAnyModifier)
+        if ( (modifiers & Qt::AltModifier) && !altGr && !(wantsAltModifier || wantsAnyModifier)
              && !event->text().isEmpty() )
         {
             textToSend.prepend("\033");
@@ -1199,7 +1212,7 @@ void Vt102Emulation::sendKeyEvent(QKeyEvent* event, bool fromPaste)
 	    QByteArray bytes = _toUtf8(str);
 	    textToSend += bytes;
         }
-        else if((modifiers & KeyboardTranslator::CTRL_MOD) && event->key() >= 0x40 && event->key() < 0x5f) {
+        else if((modifiers & KeyboardTranslator::CTRL_MOD) && !altGr && event->key() >= 0x40 && event->key() < 0x5f) {
             textToSend += (event->key() & 0x1f);
         }
         else if(event->key() == Qt::Key_Tab) {
