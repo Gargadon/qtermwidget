@@ -429,6 +429,8 @@ signals:
 
   void handleCommandFromKeyboard(KeyboardTranslator::Command command);
   void outputFromKeypressEvent(void);
+public:
+  void setCodecByName(const QString& codec);
 
 protected:
   virtual void setMode(int mode) = 0;

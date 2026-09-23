@@ -61,6 +61,16 @@ QString SearchBar::searchText()
     return widget.searchTextEdit->text();
 }
 
+void SearchBar::setSearchText(const QString& text)
+{
+    widget.searchTextEdit->setText(text);
+}
+
+void SearchBar::setMatchCase(bool matchCase)
+{
+    m_matchCaseMenuEntry->setChecked(matchCase);
+}
+
 
 bool SearchBar::useRegularExpression()
 {

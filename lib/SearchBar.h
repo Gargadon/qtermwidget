@@ -31,6 +31,8 @@ public:
     ~SearchBar() override;
     virtual void show();
     QString searchText();
+    void setSearchText(const QString& text);
+    void setMatchCase(bool matchCase);
     bool useRegularExpression();
     bool matchCase();
     bool highlightAllMatches();

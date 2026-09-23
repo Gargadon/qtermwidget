@@ -78,6 +78,16 @@ Emulation::Emulation() :
   });
 }
 
+void Emulation::setCodec(EmulationCodec codec)
+{
+    _toUtf16 = QStringDecoder(codec == Utf8Codec ? QStringConverter::Utf8 : QStringConverter::System);
+}
+
+void Emulation::setCodecByName(const QString& codec)
+{
+    setCodec(codec.compare(QStringLiteral("UTF-8"), Qt::CaseInsensitive) == 0 ? Utf8Codec : LocaleCodec);
+}
+
 bool Emulation::programUsesMouse() const
 {
     return _usesMouse;
@@ -507,4 +517,3 @@ ExtendedCharTable ExtendedCharTable::instance;
 
 
 //#include "Emulation.moc"
-

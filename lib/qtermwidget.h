@@ -97,6 +97,9 @@ public:
     //environment
     void setEnvironment(const QStringList & environment) override;
 
+    /** Select UTF-8 or the system locale for terminal input/output decoding. */
+    void setCodec(const QString& codec);
+
     //  Shell program, default is /bin/bash
     void setShellProgram(const QString & program) override;
 
@@ -313,6 +316,8 @@ signals:
      */
     void receivedData(const QString &text);
 
+    void searchResult(bool found);
+
 public slots:
     // Copy selection to clipboard
     void copyClipboard();
@@ -339,6 +344,9 @@ public slots:
     void clear();
 
     void toggleShowSearchBar();
+
+    /** Search the terminal history and select the next matching range. */
+    void searchText(const QString& text, bool forwards = true, bool next = false, bool caseSensitive = false);
 
     void saveHistory(QIODevice *device);
 protected:

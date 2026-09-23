@@ -22,6 +22,7 @@
 #include <QFileInfo>
 #include <QMessageBox>
 #include <QRegularExpression>
+#include <QSignalBlocker>
 
 #include "ColorTables.h"
 #include "Session.h"
@@ -152,6 +153,13 @@ void QTermWidget::findPrevious()
     search(false, false);
 }
 
+void QTermWidget::searchText(const QString& text, bool forwards, bool next, bool caseSensitive) {
+    const QSignalBlocker blocker(m_searchBar);
+    m_searchBar->setSearchText(text);
+    m_searchBar->setMatchCase(caseSensitive);
+    search(forwards, next);
+}
+
 void QTermWidget::search(bool forwards, bool next)
 {
     int startColumn, startLine;
@@ -216,11 +224,13 @@ void QTermWidget::matchFound(int startColumn, int startLine, int endColumn, int 
     sw->notifyOutputChanged();
     sw->setSelectionStart(startColumn, startLine - sw->currentLine(), false);
     sw->setSelectionEnd(endColumn, endLine - sw->currentLine());
+    emit searchResult(true);
 }
 
 void QTermWidget::noMatchFound()
 {
         m_impl->m_terminalDisplay->screenWindow()->clearSelection();
+        emit searchResult(false);
 }
 
 int QTermWidget::getShellPID()
@@ -699,6 +709,11 @@ void QTermWidget::setFlowControlWarningEnabled(bool enabled)
 void QTermWidget::setEnvironment(const QStringList& environment)
 {
     m_impl->m_session->setEnvironment(environment);
+}
+
+void QTermWidget::setCodec(const QString& codec)
+{
+    m_impl->m_session->emulation()->setCodecByName(codec);
 }
 
 void QTermWidget::setMotionAfterPasting(int action)
