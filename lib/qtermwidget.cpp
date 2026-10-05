@@ -152,6 +152,43 @@ void QTermWidget::findPrevious()
     search(false, false);
 }
 
+void QTermWidget::setCodec(const QString& encoding)
+{
+    m_impl->m_session->emulation()->setTextEncoding(
+        encoding.compare(QStringLiteral("Locale"), Qt::CaseInsensitive) == 0
+            ? QStringConverter::System : QStringConverter::Utf8);
+}
+
+void QTermWidget::searchText(const QString& text, bool forwards, bool next, bool caseSensitive)
+{
+    if (text.isEmpty()) {
+        noMatchFound();
+        emit searchResult(false);
+        return;
+    }
+
+    int startColumn, startLine;
+    Screen* screen = m_impl->m_terminalDisplay->screenWindow()->screen();
+    if (next) {
+        screen->getSelectionEnd(startColumn, startLine);
+        ++startColumn;
+    } else {
+        screen->getSelectionStart(startColumn, startLine);
+    }
+
+    const QRegularExpression expression(QRegularExpression::escape(text),
+        caseSensitive ? QRegularExpression::NoPatternOption : QRegularExpression::CaseInsensitiveOption);
+    auto* historySearch = new HistorySearch(m_impl->m_session->emulation(), expression,
+        forwards, startColumn, startLine, this);
+    connect(historySearch, &HistorySearch::matchFound, this, &QTermWidget::matchFound);
+    connect(historySearch, &HistorySearch::matchFound, this,
+        [this](int, int, int, int) { emit searchResult(true); });
+    connect(historySearch, &HistorySearch::noMatchFound, this, &QTermWidget::noMatchFound);
+    connect(historySearch, &HistorySearch::noMatchFound, this,
+        [this]() { emit searchResult(false); });
+    historySearch->search();
+}
+
 void QTermWidget::search(bool forwards, bool next)
 {
     int startColumn, startLine;

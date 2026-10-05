@@ -51,6 +51,11 @@
 
 using namespace Konsole;
 
+void Emulation::setTextEncoding(QStringConverter::Encoding encoding)
+{
+    _toUtf16 = QStringDecoder(encoding);
+}
+
 Emulation::Emulation() :
   _currentScreen(nullptr),
   _keyTranslator(nullptr),

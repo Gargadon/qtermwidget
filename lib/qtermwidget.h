@@ -73,6 +73,9 @@ public:
      */
     void startExternal();
     void feedData(const QByteArray& data);
+    // Supported encodings are UTF-8 (default) and Locale.
+    void setCodec(const QString& encoding);
+    void searchText(const QString& text, bool forwards, bool next, bool caseSensitive);
 
     int getShellPID() override;
 
@@ -275,6 +278,7 @@ public:
 
     void autoHideMouseAfter(int delay) override;
 signals:
+    void searchResult(bool found);
     void finished();
     void copyAvailable(bool);
 
