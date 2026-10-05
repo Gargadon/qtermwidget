@@ -122,7 +122,6 @@ class QTERMWIDGET_EXPORT Emulation : public QObject
 Q_OBJECT
 
 public:
-  void setTextEncoding(QStringConverter::Encoding encoding);
 
   /**
    * This enum describes the available shapes for the keyboard cursor.
