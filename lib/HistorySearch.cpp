@@ -56,6 +56,12 @@ void HistorySearch::search() {
             emit noMatchFound();
         }
     }
+    else
+    {
+        // An empty query is still a completed search with no match. Keep
+        // callers informed so they can clear selections and search state.
+        emit noMatchFound();
+    }
 
     deleteLater();
 }

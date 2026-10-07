@@ -2124,6 +2124,13 @@ void TerminalDisplay::mousePressEvent(QMouseEvent* ev)
 
   if ( ev->button() == Qt::LeftButton)
   {
+    Filter::HotSpot* spot = _filterChain->hotSpotAt(charLine, charColumn);
+    if ((ev->modifiers() & Qt::ControlModifier) &&
+        spot && spot->type() == Filter::HotSpot::Link) {
+      spot->activate(QLatin1String("click-action"));
+      return;
+    }
+
     // Shift+click extends the selection, but only for programs not interested in mouse.
     if (_mouseMarks && (ev->modifiers() & Qt::ShiftModifier)) {
       extendSelection(ev->position().toPoint());
@@ -2170,9 +2177,6 @@ void TerminalDisplay::mousePressEvent(QMouseEvent* ev)
         emit mouseSignal( 0, charColumn + 1, charLine + 1 +_scrollBar->value() -_scrollBar->maximum() , 0);
       }
 
-      Filter::HotSpot *spot = _filterChain->hotSpotAt(charLine, charColumn);
-      if (spot && spot->type() == Filter::HotSpot::Link)
-          spot->activate(QLatin1String("click-action"));
     }
   }
   else if ( ev->button() == Qt::MiddleButton )
