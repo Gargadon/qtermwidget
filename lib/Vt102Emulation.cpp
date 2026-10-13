@@ -1134,6 +1134,16 @@ void Vt102Emulation::sendText( const QString& text )
 void Vt102Emulation::sendKeyEvent(QKeyEvent* event, bool fromPaste)
 {
     Qt::KeyboardModifiers modifiers = event->modifiers();
+    // Preserve Shift+Enter for multiline prompts instead of collapsing it to
+    // Return (or the legacy application-keypad Enter binding).
+    const auto enterModifiers = modifiers & ~Qt::KeypadModifier;
+    if (!fromPaste && (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter)
+        && enterModifiers == Qt::ShiftModifier)
+    {
+        const QByteArray encodedEnter("\033[13;2u");
+        Q_EMIT sendData(encodedEnter.constData(), encodedEnter.size());
+        return;
+    }
     // Windows reports AltGr as Ctrl+Alt.  Treating those flags independently
     // turns printable layout characters (for example '\\' on a Latin
     // American keyboard) into Ctrl sequences and may prepend Escape.
