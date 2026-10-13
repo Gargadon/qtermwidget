@@ -728,6 +728,8 @@ QColor TerminalDisplay::keyboardCursorColor() const
 void TerminalDisplay::setOpacity(qreal opacity)
 {
     _opacity = qBound(static_cast<qreal>(0), opacity, static_cast<qreal>(1));
+  setAttribute(Qt::WA_OpaquePaintEvent, _opacity >= 1.0 && _backgroundImage.isNull());
+  update();
 }
 
 void TerminalDisplay::setBackgroundImage(const QString& backgroundImage)
@@ -860,7 +862,14 @@ void TerminalDisplay::drawCharacters(QPainter& painter,
 
     // setup pen
     const CharacterColor& textColor = ( invertCharacterColor ? style->backgroundColor : style->foregroundColor );
-    const QColor color = textColor.color(_colorTable);
+    QColor color = textColor.color(_colorTable);
+    if (style->rendition & RE_FAINT) {
+        const CharacterColor& backingColor = invertCharacterColor ? style->foregroundColor : style->backgroundColor;
+        const QColor background = backingColor.color(_colorTable);
+        color = QColor((color.red() + background.red()) / 2,
+                       (color.green() + background.green()) / 2,
+                       (color.blue() + background.blue()) / 2);
+    }
     QPen pen = painter.pen();
     if ( pen.color() != color )
     {

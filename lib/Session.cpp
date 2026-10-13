@@ -358,6 +358,15 @@ void Session::runEmptyPTY()
 
 void Session::setUserTitle( int what, const QString & caption )
 {
+    if ((what == 10 || what == 11) && caption == QLatin1String("?") && !_views.isEmpty()) {
+        const QColor color = _views.first()->colorTable()[what == 10 ? DEFAULT_FORE_COLOR : DEFAULT_BACK_COLOR].color;
+        const QByteArray response = QStringLiteral("\033]%1;rgb:%2/%3/%4\033\\")
+            .arg(what).arg(color.red() * 257, 4, 16, QLatin1Char('0'))
+            .arg(color.green() * 257, 4, 16, QLatin1Char('0'))
+            .arg(color.blue() * 257, 4, 16, QLatin1Char('0')).toLatin1();
+        _emulation->sendString(response.constData(), response.size());
+        return;
+    }
     //set to true if anything is actually changed (eg. old _nameTitle != new _nameTitle )
     bool modified = false;
 
