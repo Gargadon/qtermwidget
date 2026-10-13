@@ -728,6 +728,12 @@ QColor TerminalDisplay::keyboardCursorColor() const
 void TerminalDisplay::setOpacity(qreal opacity)
 {
     _opacity = qBound(static_cast<qreal>(0), opacity, static_cast<qreal>(1));
+    // Qt's backing store must preserve alpha when compositing this widget.
+    // WA_OpaquePaintEvent otherwise allows it to discard the background,
+    // even though drawBackground() writes translucent pixels.
+    setAttribute(Qt::WA_OpaquePaintEvent,
+                 _opacity == static_cast<qreal>(1) && _backgroundImage.isNull());
+    update();
 }
 
 void TerminalDisplay::setBackgroundImage(const QString& backgroundImage)
@@ -740,7 +746,7 @@ void TerminalDisplay::setBackgroundImage(const QString& backgroundImage)
     else
     {
         _backgroundImage = QPixmap();
-        setAttribute(Qt::WA_OpaquePaintEvent, true);
+        setAttribute(Qt::WA_OpaquePaintEvent, _opacity == static_cast<qreal>(1));
     }
 }
 
