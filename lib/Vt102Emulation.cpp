@@ -389,6 +389,31 @@ void Vt102Emulation::receiveChar(wchar_t cc)
     // This handles sequences like ESC[2:=z where '=' appears mid-parameter.
     if (p >= 4 && cc >= 0x3C && cc <= 0x3F) { return; }
 
+    // ISO 8613-6 SGR subparameters use ':', with an optional color-space
+    // field in RGB groups (38:2::r:g:b). Do not interpret it as red=0.
+    if (cc == 'm') {
+        const QString parameters = QString::fromWCharArray(s + 2, p - 3);
+        if (parameters.contains(QLatin1Char(':'))) {
+            QStringList normalized;
+            for (const QString& group : parameters.split(QLatin1Char(';'))) {
+                QStringList values = group.split(QLatin1Char(':'));
+                if (values.size() >= 2 && (values[0] == "38" || values[0] == "48")) {
+                    if (values[1] == "2" && values.size() == 6)
+                        values.removeAt(2);
+                    normalized.append(values);
+                } else {
+                    normalized.append(values.first());
+                }
+            }
+            if (normalized.size() > MAXARGS) {
+                resetTokenizer();
+                return;
+            }
+            argc = normalized.size() - 1;
+            for (int index = 0; index <= argc; ++index)
+                argv[index] = normalized[index].toInt();
+        }
+    }
     for (int i=0;i<=argc;i++)
     {
         if (epp())
@@ -1134,6 +1159,26 @@ void Vt102Emulation::sendText( const QString& text )
 void Vt102Emulation::sendKeyEvent(QKeyEvent* event, bool fromPaste)
 {
     Qt::KeyboardModifiers modifiers = event->modifiers();
+    // Preserve Shift+Enter for multiline prompts instead of collapsing it to
+    // Return (or the legacy application-keypad Enter binding).
+    const auto enterModifiers = modifiers & ~Qt::KeypadModifier;
+    if (!fromPaste && enterModifiers == Qt::ShiftModifier
+        && event->key() >= Qt::Key_Left && event->key() <= Qt::Key_Down)
+    {
+        const char suffix = event->key() == Qt::Key_Left ? 'D' : event->key() == Qt::Key_Right ? 'C'
+                          : event->key() == Qt::Key_Up ? 'A' : 'B';
+        QByteArray encodedArrow("\033[1;2");
+        encodedArrow.append(suffix);
+        Q_EMIT sendData(encodedArrow.constData(), encodedArrow.size());
+        return;
+    }
+    if (!fromPaste && (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter)
+        && enterModifiers == Qt::ShiftModifier)
+    {
+        const QByteArray encodedEnter("\033[13;2u");
+        Q_EMIT sendData(encodedEnter.constData(), encodedEnter.size());
+        return;
+    }
     // Windows reports AltGr as Ctrl+Alt.  Treating those flags independently
     // turns printable layout characters (for example '\\' on a Latin
     // American keyboard) into Ctrl sequences and may prepend Escape.

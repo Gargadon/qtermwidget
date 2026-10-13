@@ -154,6 +154,10 @@ void QTermWidget::findPrevious()
 }
 
 void QTermWidget::searchText(const QString& text, bool forwards, bool next, bool caseSensitive) {
+    if (text.isEmpty()) {
+        noMatchFound();
+        return;
+    }
     const QSignalBlocker blocker(m_searchBar);
     m_searchBar->setSearchText(text);
     m_searchBar->setMatchCase(caseSensitive);
