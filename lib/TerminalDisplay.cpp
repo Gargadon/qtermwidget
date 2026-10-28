@@ -3005,10 +3005,9 @@ void TerminalDisplay::mouseTripleClickEvent(QMouseEvent* ev)
 
 bool TerminalDisplay::focusNextPrevChild( bool next )
 {
-  if (next)
-    return false; // This disables changing the active part in konqueror
-                  // when pressing Tab
-  return QWidget::focusNextPrevChild( next );
+  Q_UNUSED(next);
+  // Both Tab and Shift+Tab belong to the shell, not widget navigation.
+  return false;
 }
 
 
@@ -3338,6 +3337,9 @@ bool TerminalDisplay::handleShortcutOverrideEvent(QKeyEvent* keyEvent)
     {
       // list is taken from the QLineEdit::event() code
       case Qt::Key_Tab:
+      case Qt::Key_Tab | Qt::ShiftModifier:
+      case Qt::Key_Backtab:
+      case Qt::Key_Backtab | Qt::ShiftModifier:
       case Qt::Key_Delete:
       case Qt::Key_Home:
       case Qt::Key_End:
@@ -3566,7 +3568,7 @@ void TerminalDisplay::dropEvent(QDropEvent* event)
         QString urlText;
 
         if (url.isLocalFile())
-            urlText = url.path();
+            urlText = url.toLocalFile();
         else
             urlText = url.toString();
 
@@ -3599,7 +3601,13 @@ void TerminalDisplay::dropEvent(QDropEvent* event)
     }
   }
 
-  emit sendStringToEmu(dropText.toLocal8Bit().constData());
+  // Preserve Unicode and let the emulation encode text using its configured
+  // codec, just as clipboard paste does. Local 8-bit bytes corrupt paths on
+  // Windows when the shell expects UTF-8.
+  bracketText(dropText);
+  QKeyEvent keyEvent(QEvent::KeyPress, 0, Qt::NoModifier, dropText);
+  emit keyPressedSignal(&keyEvent, true);
+  event->acceptProposedAction();
 }
 
 void TerminalDisplay::doDrag()
