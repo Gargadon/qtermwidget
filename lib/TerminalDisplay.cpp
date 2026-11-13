@@ -3459,9 +3459,9 @@ bool TerminalDisplay::handleShortcutOverrideEvent(QKeyEvent* keyEvent)
     {
       // list is taken from the QLineEdit::event() code
       case Qt::Key_Tab:
-      case Qt::Key_Tab | Qt::ShiftModifier:
+      case QKeyCombination(Qt::ShiftModifier, Qt::Key_Tab).toCombined():
       case Qt::Key_Backtab:
-      case Qt::Key_Backtab | Qt::ShiftModifier:
+      case QKeyCombination(Qt::ShiftModifier, Qt::Key_Backtab).toCombined():
       case Qt::Key_Delete:
       case Qt::Key_Home:
       case Qt::Key_End:

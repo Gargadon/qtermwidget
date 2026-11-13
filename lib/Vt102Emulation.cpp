@@ -432,8 +432,8 @@ void Vt102Emulation::receiveChar(wchar_t cc)
             QStringList normalized;
             for (const QString& group : parameters.split(QLatin1Char(';'))) {
                 QStringList values = group.split(QLatin1Char(':'));
-                if (values.size() >= 2 && (values[0] == "38" || values[0] == "48")) {
-                    if (values[1] == "2" && values.size() == 6)
+                if (values.size() >= 2 && (values[0] == QLatin1String("38") || values[0] == QLatin1String("48"))) {
+                    if (values[1] == QLatin1String("2") && values.size() == 6)
                         values.removeAt(2);
                     normalized.append(values);
                 } else {
