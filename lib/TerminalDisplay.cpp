@@ -929,7 +929,7 @@ void TerminalDisplay::drawTextFragment(QPainter& painter ,
     // draw background if different from the display's background color
     if ( backgroundColor != palette().window().color() )
         drawBackground(painter,rect,backgroundColor,
-                       false /* do not use transparency */);
+                       true /* honor terminal background opacity */);
 
     // draw cursor shape if the current character is the cursor
     // this may alter the foreground and background colors
@@ -1980,7 +1980,9 @@ void TerminalDisplay::blinkCursorEvent()
 void TerminalDisplay::resizeEvent(QResizeEvent*)
 {
   updateImageSize();
+  updateImage();
   processFilters();
+  update();
 }
 
 void TerminalDisplay::propagateSize()

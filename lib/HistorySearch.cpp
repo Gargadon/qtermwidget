@@ -44,9 +44,9 @@ void HistorySearch::search() {
     if (! m_regExp.pattern().isEmpty())
     {
         if (m_forwards) {
-            found = search(m_startColumn, m_startLine, -1, m_emulation->lineCount()) || search(0, 0, m_startColumn, m_startLine);
+            found = search(m_startColumn, m_startLine, -1, (m_emulation->lineCount() - 1)) || search(0, 0, m_startColumn, m_startLine);
         } else {
-            found = search(0, 0, m_startColumn, m_startLine) || search(m_startColumn, m_startLine, -1, m_emulation->lineCount());
+            found = search(0, 0, m_startColumn, m_startLine) || search(m_startColumn, m_startLine, -1, (m_emulation->lineCount() - 1));
         }
 
         if (found) {
