@@ -123,7 +123,11 @@ Session::Session(QObject* parent) :
     connect( _emulation,SIGNAL(useUtf8Request(bool)),_shellProcess,SLOT(setUtf8Mode(bool)) );
 
     connect( _shellProcess,SIGNAL(finished(int,QProcess::ExitStatus)), this, SLOT(done(int,QProcess::ExitStatus)) );
-    connect( _shellProcess, &QProcess::errorOccurred, [=,this](QProcess::ProcessError) { done(-1, QProcess::CrashExit); });
+#ifndef Q_OS_WIN
+    // The Windows Pty routes external ConPTY I/O and is not a QProcess.
+    connect( _shellProcess, &QProcess::errorOccurred, this,
+             [this](QProcess::ProcessError) { done(-1, QProcess::CrashExit); });
+#endif
 
     //setup timer for monitoring session activity
     _monitorTimer = new QTimer(this);
@@ -683,7 +687,7 @@ void Session::done(int exitCode, QProcess::ExitStatus exitStatus)
         return;
     }
 
-    auto isInteractiveShell = [=,this]() {
+    auto isInteractiveShell = [this]() {
         if (_program.isEmpty())
             return true; // defaults to the below
         if (_program == QString::fromLocal8Bit(qgetenv("SHELL")) && _arguments.isEmpty())
@@ -737,7 +741,7 @@ void Session::done(int exitCode, QProcess::ExitStatus exitStatus)
         }
     }
     // escape the current event cycle to avoid a coredump
-    QTimer::singleShot(0, [=,this]() { emit finished(); });
+    QTimer::singleShot(0, this, [this]() { emit finished(); });
 }
 
 Emulation * Session::emulation() const
