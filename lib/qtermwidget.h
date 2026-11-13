@@ -228,6 +228,12 @@ public:
     int getPtySlaveFd() const override;
 
     /**
+     * Returns the pty name (usually under /dev/pts/)
+     * This can be used for external access via a device node.
+     */
+    QString getPtyName() const override;
+
+    /**
      * Sets the shape of the keyboard cursor.  This is the cursor drawn
      * at the position in the terminal where keyboard input will appear.
      */
@@ -270,6 +276,11 @@ public:
 
     void setConfirmMultilinePaste(bool confirmMultilinePaste) override;
     void setTrimPastedTrailingNewlines(bool trimPastedTrailingNewlines) override;
+
+    void setOsc8HyperlinksEnabled(bool enabled) override;
+    bool osc8HyperlinksEnabled() const override;
+    void setLinkTooltipsEnabled(bool enabled) override;
+    bool linkTooltipsEnabled() const override;
 
     QString wordCharacters() const override;
     void setWordCharacters(const QString& chars) override;
@@ -333,7 +344,7 @@ public slots:
     void zoomOut();
 
     // Set size
-    void setSize(const QSize &);
+    virtual void setSize(const QSize &);
 
     /*! Set named key binding for given widget
      */

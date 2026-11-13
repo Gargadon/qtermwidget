@@ -34,7 +34,7 @@ key Return+Shift         : "\EOM"
 
 # Backspace and Delete codes are preserving CTRL-H.
 #
-# Backspace without CTRL sends '^H'; this matches XTerm behaviour
+# Backspace without CTRL sends '^H'; this matches XTerm default behaviour
 # BS, hex \x08, \b
 key Backspace -Control : "\b"
 
@@ -43,29 +43,28 @@ key Backspace +Control : "\x7f"
 
 # Arrow keys in VT52 mode
 # shift up/down are reserved for scrolling.
-# shift left/right are reserved for switching between tabs (this is hardcoded).
 
 key Up   -Shift-Ansi : "\EA"
 key Down -Shift-Ansi : "\EB"
-key Right-Shift-Ansi : "\EC"
-key Left -Shift-Ansi : "\ED"
+key Right-Ansi       : "\EC"
+key Left -Ansi       : "\ED"
 
 # Arrow keys in ANSI mode with Application - and Normal Cursor Mode)
 
 key Up    -Shift-AnyMod+Ansi+AppCuKeys : "\EOA"
 key Down  -Shift-AnyMod+Ansi+AppCuKeys : "\EOB"
-key Right -Shift-AnyMod+Ansi+AppCuKeys : "\EOC"
-key Left  -Shift-AnyMod+Ansi+AppCuKeys : "\EOD"
+key Right -AnyMod+Ansi+AppCuKeys       : "\EOC"
+key Left  -AnyMod+Ansi+AppCuKeys       : "\EOD"
 
 key Up    -Shift-AnyMod+Ansi-AppCuKeys : "\E[A"
 key Down  -Shift-AnyMod+Ansi-AppCuKeys : "\E[B"
-key Right -Shift-AnyMod+Ansi-AppCuKeys : "\E[C"
-key Left  -Shift-AnyMod+Ansi-AppCuKeys : "\E[D"
+key Right -AnyMod+Ansi-AppCuKeys       : "\E[C"
+key Left  -AnyMod+Ansi-AppCuKeys       : "\E[D"
 
 key Up    -Shift+AnyMod+Ansi           : "\E[1;*A"
 key Down  -Shift+AnyMod+Ansi           : "\E[1;*B"
-key Right -Shift+AnyMod+Ansi           : "\E[1;*C"
-key Left  -Shift+AnyMod+Ansi           : "\E[1;*D"
+key Right +AnyMod+Ansi                 : "\E[1;*C"
+key Left  +AnyMod+Ansi                 : "\E[1;*D"
 
 key Up    +Shift+AppScreen             : "\E[1;*A"
 key Down  +Shift+AppScreen             : "\E[1;*B"

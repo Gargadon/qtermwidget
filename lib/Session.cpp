@@ -32,6 +32,8 @@
 #include <QApplication>
 #include <QDir>
 #include <QFile>
+#include <QFileDialog>
+#include <QMessageBox>
 #include <QStringList>
 #include <QSysInfo>
 #include <QtDebug>
@@ -39,6 +41,7 @@
 
 #include "Pty.h"
 //#include "kptyprocess.h"
+#include "TerminalCharacterDecoder.h"
 #include "TerminalDisplay.h"
 #include "ShellCommand.h"
 #include "Vt102Emulation.h"
@@ -106,6 +109,9 @@ Session::Session(QObject* parent) :
     connect(_emulation, &Vt102Emulation::cursorChanged,
             this, &Session::cursorChanged);
 
+    connect(_emulation, &Vt102Emulation::oscColorQuery, this, &Session::postColor);
+    connect(_emulation, &Vt102Emulation::oscColorChangeRequest, this, &Session::setColor);
+
     //connect teletype to emulation backend
     _shellProcess->setUtf8Mode(true);
 
@@ -117,7 +123,7 @@ Session::Session(QObject* parent) :
     connect( _emulation,SIGNAL(useUtf8Request(bool)),_shellProcess,SLOT(setUtf8Mode(bool)) );
 
     connect( _shellProcess,SIGNAL(finished(int,QProcess::ExitStatus)), this, SLOT(done(int,QProcess::ExitStatus)) );
-    // not in kprocess anymore connect( _shellProcess,SIGNAL(done(int)), this, SLOT(done(int)) );
+    connect( _shellProcess, &QProcess::errorOccurred, [=,this](QProcess::ProcessError) { done(-1, QProcess::CrashExit); });
 
     //setup timer for monitoring session activity
     _monitorTimer = new QTimer(this);
@@ -327,6 +333,7 @@ void Session::run()
      * Dont know about the arguments though.. maybe youll need some more checking im not sure
      * However this works on Arch and FreeBSD now.
      */
+    _uptime.start();
     int result = _shellProcess->start(exec,
                                       arguments,
                                       _environment << backgroundColorHint,
@@ -334,7 +341,8 @@ void Session::run()
                                       _addToUtmp);
 
     if (result < 0) {
-        qDebug() << "CRASHED! result: " << result;
+//        qDebug() << "CRASHED! result: " << result;
+        // don't run ::done() - QProcess will emit an error we're already handling generically
         return;
     }
 
@@ -358,15 +366,6 @@ void Session::runEmptyPTY()
 
 void Session::setUserTitle( int what, const QString & caption )
 {
-    if ((what == 10 || what == 11) && caption == QLatin1String("?") && !_views.isEmpty()) {
-        const QColor color = _views.first()->colorTable()[what == 10 ? DEFAULT_FORE_COLOR : DEFAULT_BACK_COLOR].color;
-        const QByteArray response = QStringLiteral("\033]%1;rgb:%2/%3/%4\033\\")
-            .arg(what).arg(color.red() * 257, 4, 16, QLatin1Char('0'))
-            .arg(color.green() * 257, 4, 16, QLatin1Char('0'))
-            .arg(color.blue() * 257, 4, 16, QLatin1Char('0')).toLatin1();
-        _emulation->sendString(response.constData(), response.size());
-        return;
-    }
     //set to true if anything is actually changed (eg. old _nameTitle != new _nameTitle )
     bool modified = false;
 
@@ -668,31 +667,77 @@ QString Session::profileKey() const
 
 void Session::done(int exitCode, QProcess::ExitStatus exitStatus)
 {
+    // because of the nested event loop of the modal dialogs below and if this is coming from a process error,
+    //  there'd be a subsequent signal that leads us into a coredump
+    disconnect( _shellProcess,SIGNAL(finished(int,QProcess::ExitStatus)), this, SLOT(done(int,QProcess::ExitStatus)) );
+
     if (!_autoClose) {
         _userTitle = QString::fromLatin1("This session is done. Finished");
         emit titleChanged();
         return;
     }
 
-    // message is not being used. But in the original kpty.cpp file
-    // (https://cgit.kde.org/kpty.git/) it's part of a notification.
-    // So, we make it translatable, hoping that in the future it will
-    // be used in some kind of notification.
-    QString message;
-    if (!_wantedClose || exitCode != 0) {
-
-        if (_shellProcess->exitStatus() == QProcess::NormalExit) {
-            message = tr("Session '%1' exited with code %2.").arg(_nameTitle).arg(exitCode);
-        } else {
-            message = tr("Session '%1' crashed.").arg(_nameTitle);
-        }
+    if (_wantedClose)
+    {
+        emit finished();
+        return;
     }
 
-    if ( !_wantedClose && exitStatus != QProcess::NormalExit )
-        message = tr("Session '%1' exited unexpectedly.").arg(_nameTitle);
-    else
-        emit finished();
+    auto isInteractiveShell = [=,this]() {
+        if (_program.isEmpty())
+            return true; // defaults to the below
+        if (_program == QString::fromLocal8Bit(qgetenv("SHELL")) && _arguments.isEmpty())
+            return true; // the default scenario
+        // heuristics
+        if (_uptime.elapsed() > 500 && // **interactive** shell hopefully ran > 500ms
+            _program.endsWith(QLatin1String("sh")) && // ash, bash, fish, pwsh, ssh, zsh …
+                                                      // not all will be in /etc/shells and false positives rare
+            ! _program.endsWith(QLatin1String(".sh"))) // but exclude scripts!
+            return true;
+        return false;
+    };
 
+    // the client shell unexpectedly died or died with an error - warn the user and offer to save the history
+    QString message;
+    /// @todo, annoy translators who've kept this around pointlessly by incorporating _shellProcess->error()
+    if (exitStatus != QProcess::NormalExit)
+        message = tr("Session '%1' exited unexpectedly.").arg(_nameTitle);
+    else if (exitCode != 0 && !isInteractiveShell()) // interactive shell likely just exited $? which the user has seen
+        message = _shellProcess->exitStatus() == QProcess::NormalExit ?
+                  tr("Session '%1' exited with code %2.").arg(_nameTitle).arg(exitCode) :
+                  tr("Session '%1' crashed.").arg(_nameTitle);
+    if (!message.isEmpty())
+    {
+        message += tr("\nDo you want to save the scrollback buffer?");
+        QWidget *widget = nullptr;
+        while (QObject *o = parent())
+        {
+            if ((widget = qobject_cast<QWidget*>(o)))
+                break;
+            o = o->parent();
+        }
+        QMessageBox::StandardButton ret =
+                    QMessageBox::critical(widget, tr("Exited Unexpectedly"), message,
+                                            QMessageBox::Save|QMessageBox::Cancel);
+        if (ret == QMessageBox::Save)
+        {
+            const QString where = QFileDialog::getSaveFileName(widget, tr("Save history"));
+            if (!where.isEmpty())
+            {
+                QFile file(where);
+                if (file.open(QIODevice::WriteOnly | QIODevice::Text))
+                {
+                    QTextStream stream(&file);
+                    PlainTextDecoder decoder;
+                    decoder.begin(&stream);
+                    _emulation->writeToStream(&decoder, 0, _emulation->lineCount());
+                    file.close();
+                }
+            }
+        }
+    }
+    // escape the current event cycle to avoid a coredump
+    QTimer::singleShot(0, [=,this]() { emit finished(); });
 }
 
 Emulation * Session::emulation() const
@@ -988,6 +1033,68 @@ void Session::onReceiveBlock( const char * buf, int len )
     emit receivedData( QString::fromLatin1( buf, len ) );
 }
 
+void Session::postColor(int forWhat)
+{
+    if (_views.isEmpty())
+        return;
+    QColor c;
+    switch (forWhat)
+    {
+        case 10: c = _views.at(0)->foregroundColor(); break;
+        case 11: c = _views.at(0)->backgroundColor(); break;
+        case 12: c = _views.at(0)->keyboardCursorColor(); break;
+        default: c = QColor(0xff1cb3); // pink, urxvt uses that as "wtf do you want from me"
+    }
+    auto to16bpc = [](uint c) {
+        return QStringLiteral("%1").arg(c*0xffff/0xff, 4, 16, QLatin1Char('0'));
+    };
+    QString s;
+    if (c.alpha() != 0xff)
+        s = QLatin1String("\033]%1;rgba:%2/%3/%4/%5\a").arg(QString::number(forWhat)).arg(to16bpc(c.red())).arg(to16bpc(c.green())).arg(to16bpc(c.blue())).arg(to16bpc(c.alpha()));
+    else
+        s = QLatin1String("\033]%1;rgb:%2/%3/%4\a").arg(QString::number(forWhat)).arg(to16bpc(c.red())).arg(to16bpc(c.green())).arg(to16bpc(c.blue()));
+    const QByteArray response = s.toLatin1();
+    _emulation->sendString(response.constData(), response.size());
+}
+
+void Session::setColor(int forWhat, QString color)
+{
+    QColor c;
+    auto from16bpc = [](const QString &s) {
+        uint u = s.toUInt(nullptr, 16);
+        return u*0xff/0xffff;
+    };
+    if (color.startsWith(QLatin1String("rgb")))
+    {   // this sucks, but the 16bpc rrrr/gggg/bbbb/aaaa is xterm's preferred format
+        int split = color.indexOf(QLatin1Char(':'));
+        if (split < 0)
+            return; // ill-formated
+        // we'll interpret this relaxed based on the filed count, not the indicator
+        QStringList v = color.mid(split+1).split(QLatin1Char('/'));
+        QRgb argb(0xff000000); // argb black
+        // … and just use the values we get, ie. "rgba:ffff" would get you red
+        for (int i = 0; i < qMin(3,v.size()); ++i)
+            argb |= (from16bpc(v.at(i)) << (2-i)*8);
+        if (v.size() > 3)
+            argb = (argb & 0x00ffffff) | (from16bpc(v.at(3))<<24);
+        c = QColor::fromRgba(argb);
+    }
+    else // still support the more common color syntax #rgb or #rrggbbaa
+    {   // just hope that the user provided a reasonable #rrggbbaa string
+        c = QColor(color);
+    }
+
+    for (TerminalDisplay *td : _views)
+    {
+        if (forWhat == 10)
+            td->setForegroundColor(c);
+        else if (forWhat == 11)
+            td->setBackgroundColor(c);
+        else if (forWhat == 12)
+            td->setKeyboardCursorColor(false, c);
+    }
+}
+
 QSize Session::size()
 {
     return _emulation->imageSize();
@@ -1012,6 +1119,14 @@ int Session::processId() const
 int Session::getPtySlaveFd() const
 {
     return ptySlaveFd;
+}
+QString Session::getPtyName() const
+{
+#ifdef Q_OS_WIN
+    return QString();
+#else
+    return QString::fromLatin1(_shellProcess->pty()->ttyName());
+#endif
 }
 
 SessionGroup::SessionGroup()

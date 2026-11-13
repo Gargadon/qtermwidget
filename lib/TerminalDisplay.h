@@ -68,7 +68,12 @@ namespace Konsole
         Zoom,
         Fit,
         Center,
-        Fill
+        Fill,
+        Tiled,
+        TopLeft,
+        TopRight,
+        BottomLeft,
+        BottomRight
     };
 
 extern unsigned short vt100_graphics[32];
@@ -428,6 +433,10 @@ public:
     void setConfirmMultilinePaste(bool confirmMultilinePaste);
     void setTrimPastedTrailingNewlines(bool trimPastedTrailingNewlines);
 
+    /** Show destination URL tooltips when hovering link hotspots. */
+    void setLinkTooltipsEnabled(bool enabled);
+    bool linkTooltipsEnabled() const;
+
     // maps a point on the widget to the position ( ie. line and column )
     // of the character at that point.
     void getCharacterPosition(const QPointF& widgetPoint,int& line,int& column) const;
@@ -530,11 +539,17 @@ public slots:
      */
     void setBackgroundColor(const QColor& color);
 
+    QColor backgroundColor() const
+    { return _colorTable[DEFAULT_BACK_COLOR].color; }
+
     /**
      * Sets the text of the display to the specified color.
      * @see setColorTable(), setBackgroundColor()
      */
     void setForegroundColor(const QColor& color);
+
+    QColor foregroundColor() const
+    { return _colorTable[DEFAULT_FORE_COLOR].color; }
 
     void selectionChanged();
 
@@ -652,8 +667,11 @@ private slots:
 
     void swapColorTable();
     void tripleClickTimeout();  // resets possibleTripleClick
+    void showPendingLinkTooltip();
 
 private:
+
+    void clearLinkTooltip();
 
     // -- Drawing helpers --
 
@@ -849,7 +867,7 @@ private:
 
     qreal _opacity;
 
-    QPixmap _backgroundImage;
+    QString _backgroundImage;
     BackgroundMode _backgroundMode;
 
     // list of filters currently applied to the display.  used for links and
@@ -867,6 +885,10 @@ private:
     MotionAfterPasting mMotionAfterPasting;
     bool _confirmMultilinePaste;
     bool _trimPastedTrailingNewlines;
+    bool _linkTooltipsEnabled;
+    QTimer* _linkTooltipTimer;
+    QString _pendingLinkTooltip;
+    QPoint _pendingLinkTooltipPos;
 
     struct InputMethodData
     {

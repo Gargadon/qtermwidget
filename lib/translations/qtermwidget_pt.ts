@@ -4,50 +4,67 @@
 <context>
     <name>Konsole::Session</name>
     <message>
-        <location filename="../Session.cpp" line="481"/>
+        <location filename="../Session.cpp" line="489"/>
         <source>Bell in session &apos;%1&apos;</source>
         <translation>Campainha na sessão &apos;%1&apos;</translation>
     </message>
     <message>
-        <location filename="../Session.cpp" line="663"/>
+        <location filename="../Session.cpp" line="694"/>
         <source>Session &apos;%1&apos; exited with code %2.</source>
         <translation>A sessão &apos;%1&apos; terminou com o código %2.</translation>
     </message>
     <message>
-        <location filename="../Session.cpp" line="665"/>
+        <location filename="../Session.cpp" line="695"/>
         <source>Session &apos;%1&apos; crashed.</source>
         <translation>A sessão &apos;%1&apos; terminou.</translation>
     </message>
     <message>
-        <location filename="../Session.cpp" line="670"/>
+        <location filename="../Session.cpp" line="707"/>
+        <source>Exited Unexpectedly</source>
+        <translation>Encerrou inesperadamente</translation>
+    </message>
+    <message>
+        <location filename="../Session.cpp" line="691"/>
         <source>Session &apos;%1&apos; exited unexpectedly.</source>
         <translation>A sessão &apos;%1&apos; terminou inesperadamente.</translation>
+    </message>
+    <message>
+        <location filename="../Session.cpp" line="698"/>
+        <source>
+Do you want to save the scrollback buffer?</source>
+        <translation>
+Quer guardar o buffer de rolagem?</translation>
+    </message>
+    <message>
+        <location filename="../Session.cpp" line="711"/>
+        <source>Save history</source>
+        <translation>Guardar histórico</translation>
     </message>
 </context>
 <context>
     <name>Konsole::TerminalDisplay</name>
     <message>
-        <location filename="../TerminalDisplay.cpp" line="1312"/>
+        <location filename="../TerminalDisplay.cpp" line="1391"/>
         <source>Size: XXX x XXX</source>
         <translation>Tamanho: XXX x XXX</translation>
     </message>
     <message>
-        <location filename="../TerminalDisplay.cpp" line="1324"/>
+        <location filename="../TerminalDisplay.cpp" line="1403"/>
         <source>Size: %1 x %2</source>
         <translation>Tamanho: %1 x %2</translation>
     </message>
     <message>
-        <location filename="../TerminalDisplay.cpp" line="2989"/>
+        <location filename="../TerminalDisplay.cpp" line="3229"/>
         <source>Paste multiline text</source>
         <translation>Colar texto com várias linhas</translation>
     </message>
     <message>
-        <location filename="../TerminalDisplay.cpp" line="2990"/>
+        <location filename="../TerminalDisplay.cpp" line="3230"/>
         <source>Are you sure you want to paste this text?</source>
         <translation>Tem a certeza que deseja colar este texto?</translation>
     </message>
     <message>
-        <location filename="../TerminalDisplay.cpp" line="3462"/>
+        <location filename="../TerminalDisplay.cpp" line="3728"/>
         <source>&lt;qt&gt;Output has been &lt;a href=&quot;http://en.wikipedia.org/wiki/Flow_control&quot;&gt;suspended&lt;/a&gt; by pressing Ctrl+S.  Press &lt;b&gt;Ctrl+Q&lt;/b&gt; to resume.&lt;/qt&gt;</source>
         <translation>&lt;qt&gt;A saída foi &lt;a href=&quot;http://en.wikipedia.org/wiki/Flow_control&quot;&gt; suspendida&lt;/a&gt; com Ctrl+S. Prima &lt;b&gt;Ctrl+Q&lt;/b&gt; para continuar.&lt;/qt&gt;</translation>
     </message>
@@ -55,7 +72,7 @@
 <context>
     <name>Konsole::Vt102Emulation</name>
     <message>
-        <location filename="../Vt102Emulation.cpp" line="1150"/>
+        <location filename="../Vt102Emulation.cpp" line="1308"/>
         <source>No keyboard translator available.  The information needed to convert key presses into characters to send to the terminal is missing.</source>
         <translation>Não há um tradutor de teclado disponível. A informação necessária para converter a pressão da tecla nos caracteres a enviar ao terminal não existe.</translation>
     </message>
@@ -63,7 +80,7 @@
 <context>
     <name>QMessageBox</name>
     <message>
-        <location filename="../TerminalDisplay.cpp" line="2996"/>
+        <location filename="../TerminalDisplay.cpp" line="3236"/>
         <source>Show Details...</source>
         <translation>Mostrar detalhes...</translation>
     </message>
@@ -82,22 +99,24 @@
         <translation>Esquema de cores acessível</translation>
     </message>
     <message>
-        <location filename="../Filter.cpp" line="603"/>
+        <location filename="../Filter.cpp" line="635"/>
+        <location filename="../Filter.cpp" line="837"/>
         <source>Open Link</source>
         <translation>Abrir ligação</translation>
     </message>
     <message>
-        <location filename="../Filter.cpp" line="604"/>
+        <location filename="../Filter.cpp" line="636"/>
+        <location filename="../Filter.cpp" line="838"/>
         <source>Copy Link Address</source>
         <translation>Copiar endereço da ligação</translation>
     </message>
     <message>
-        <location filename="../Filter.cpp" line="608"/>
+        <location filename="../Filter.cpp" line="640"/>
         <source>Send Email To...</source>
         <translation>Enviar e-mail para...</translation>
     </message>
     <message>
-        <location filename="../Filter.cpp" line="609"/>
+        <location filename="../Filter.cpp" line="641"/>
         <source>Copy Email Address</source>
         <translation>Copiar endereço de e-mail</translation>
     </message>
@@ -105,12 +124,12 @@
 <context>
     <name>QTermWidget</name>
     <message>
-        <location filename="../qtermwidget.cpp" line="481"/>
+        <location filename="../qtermwidget.cpp" line="486"/>
         <source>Color Scheme Error</source>
         <translation>Erro no esquema de cores</translation>
     </message>
     <message>
-        <location filename="../qtermwidget.cpp" line="482"/>
+        <location filename="../qtermwidget.cpp" line="487"/>
         <source>Cannot load color scheme: %1</source>
         <translation>Não foi possível carregar o esquema de cores: %1</translation>
     </message>

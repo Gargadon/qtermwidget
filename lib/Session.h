@@ -25,6 +25,7 @@
 #ifndef SESSION_H
 #define SESSION_H
 
+#include <QElapsedTimer>
 #include <QProcess>
 #include <QStringList>
 #include <QUrl>
@@ -382,6 +383,11 @@ public:
 
     /** Returns internal Pty process pointer */
     Pty* shellProcess() const { return _shellProcess; }
+    /**
+     * Returns the pty name (usually under /dev/pts/)
+     * This can be used for external access via a device node.
+     */
+    QString getPtyName() const;
 
 public slots:
 
@@ -514,6 +520,9 @@ private slots:
     void onViewSizeChange(int height, int width);
     void onEmulationSizeChange(QSize);
 
+    void postColor(int forWhat);
+    void setColor(int forWhat, QString color);
+
     void activityStateSet(int);
 
     //automatically detach views from sessions when view is destroyed
@@ -543,6 +552,7 @@ private:
     bool           _autoClose;
     bool           _wantedClose;
     QTimer    *    _monitorTimer;
+    QElapsedTimer  _uptime;
 
     int            _silenceSeconds;
 

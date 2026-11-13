@@ -38,6 +38,7 @@
 #include <QMessageBox>
 #include <QPainter>
 #include <QPixmap>
+#include <QToolTip>
 #include <QRegularExpression>
 #include <QStyle>
 #include <QTimer>
@@ -146,6 +147,58 @@ inline int TerminalDisplay::loc(int x, int y) const
 static QPoint gs_deadSpot(-1,-1);
 static QPoint gs_futureDeadSpot;
 std::shared_ptr<QTimer> TerminalDisplay::_hideMouseTimer;
+
+// Share the smae background pixmap across mutliple tabs, windows, …
+typedef QPair<QPixmap,QList<void*>> SharedPixmap;
+class ScaledPixmapCache : public QMap<QString,SharedPixmap>
+{
+    public:
+        bool attach(void *hook, QString imageFile)
+        {
+            if (imageFile.isEmpty())
+                return false;
+            ScaledPixmapCache::iterator it = find(imageFile);
+            if (it == end())
+            {
+                QPixmap pix;
+                if (!pix.load(imageFile))
+                    return false; // bogus image path, stupid user
+                it = insert(imageFile, SharedPixmap(pix, QList<void*>() << hook));
+                return true;
+            }
+            if (!it->second.contains(hook))
+                it->second << hook;
+            return true;
+        }
+        bool detach(void *hook, QString imageFile)
+        {
+            ScaledPixmapCache::iterator it = find(imageFile);
+            if (it == end() || !it->second.contains(hook))
+                return false;
+            it->second.removeAll(hook);
+            if (it->second.isEmpty())
+                erase(it);
+            return true;
+        }
+        void detach(void *hook)
+        {
+            ScaledPixmapCache::iterator it = begin();
+            while (it != end())
+            {
+                it->second.removeAll(hook);
+                if (it->second.isEmpty())
+                    it = erase(it);
+                else
+                    ++it;
+            }
+        }
+        QPixmap pixmap(QString imageFile)
+        {
+            ScaledPixmapCache::const_iterator it = constFind(imageFile);
+            return it == constEnd() ? QPixmap() : it->first;
+        }
+};
+static ScaledPixmapCache gs_backgroundCache;
 
 ScreenWindow* TerminalDisplay::screenWindow() const
 {
@@ -391,6 +444,10 @@ TerminalDisplay::TerminalDisplay(QWidget *parent)
 ,_filterChain(new TerminalImageFilterChain())
 ,_cursorShape(Emulation::KeyboardCursorShape::BlockCursor)
 ,mMotionAfterPasting(NoMoveScreenWindow)
+,_confirmMultilinePaste(true)
+,_trimPastedTrailingNewlines(false)
+,_linkTooltipsEnabled(true)
+,_linkTooltipTimer(nullptr)
 ,_leftBaseMargin(1)
 ,_topBaseMargin(1)
 ,_drawLineChars(true)
@@ -431,6 +488,10 @@ TerminalDisplay::TerminalDisplay(QWidget *parent)
   _blinkCursorTimer   = new QTimer(this);
   connect(_blinkCursorTimer, SIGNAL(timeout()), this, SLOT(blinkCursorEvent()));
 
+  _linkTooltipTimer = new QTimer(this);
+  _linkTooltipTimer->setSingleShot(true);
+  connect(_linkTooltipTimer, &QTimer::timeout, this, &TerminalDisplay::showPendingLinkTooltip);
+
   setUsesMouse(true);
   setBracketedPasteMode(false);
   setColorTable(base_color_table);
@@ -459,6 +520,7 @@ TerminalDisplay::TerminalDisplay(QWidget *parent)
 
 TerminalDisplay::~TerminalDisplay()
 {
+  gs_backgroundCache.detach(this);
   disconnect(_blinkTimer);
   disconnect(_blinkCursorTimer);
   if (_hideMouseTimer)
@@ -732,22 +794,21 @@ void TerminalDisplay::setOpacity(qreal opacity)
     // WA_OpaquePaintEvent otherwise allows it to discard the background,
     // even though drawBackground() writes translucent pixels.
     setAttribute(Qt::WA_OpaquePaintEvent,
-                 _opacity == static_cast<qreal>(1) && _backgroundImage.isNull());
+                 _opacity == static_cast<qreal>(1) && _backgroundImage.isEmpty());
     update();
 }
 
 void TerminalDisplay::setBackgroundImage(const QString& backgroundImage)
 {
-    if (!backgroundImage.isEmpty())
-    {
-        _backgroundImage.load(backgroundImage);
-        setAttribute(Qt::WA_OpaquePaintEvent, false);
-    }
-    else
-    {
-        _backgroundImage = QPixmap();
-        setAttribute(Qt::WA_OpaquePaintEvent, _opacity == static_cast<qreal>(1));
-    }
+    if (_backgroundImage == backgroundImage)
+        return;
+    gs_backgroundCache.detach(this, _backgroundImage);
+    _backgroundImage = backgroundImage;
+    const bool haveImage = gs_backgroundCache.attach(this, _backgroundImage);
+    if (!haveImage)
+        _backgroundImage = QString();
+    setAttribute(Qt::WA_OpaquePaintEvent, !haveImage && _opacity == static_cast<qreal>(1));
+    update();
 }
 
 void TerminalDisplay::setBackgroundMode(BackgroundMode mode)
@@ -762,7 +823,7 @@ void TerminalDisplay::drawBackground(QPainter& painter, const QRect& rect, const
         // left to the widget style for a consistent look.
         if ( useOpacitySetting )
         {
-            if (_backgroundImage.isNull()) {
+            if (_backgroundImage.isEmpty() || backgroundColor != palette().window().color()) {
                 QColor color(backgroundColor);
                 color.setAlphaF(_opacity);
 
@@ -784,28 +845,25 @@ void TerminalDisplay::drawCursor(QPainter& painter,
 {
     QRectF cursorRect = rect;
     cursorRect.setHeight(_fontHeight - _lineSpacing - 1);
+    cursorRect.translate(0,(rect.height()-cursorRect.height())/2.0);
 
     if (!_cursorBlinking)
     {
-       if ( _cursorColor.isValid() )
-           painter.setPen(_cursorColor);
-       else
-           painter.setPen(foregroundColor);
+        if ( _cursorColor.isValid() )
+            painter.setPen(_cursorColor);
+        else
+            painter.setPen(foregroundColor);
 
-       if ( _cursorShape == Emulation::KeyboardCursorShape::BlockCursor )
-       {
-            // draw the cursor outline, adjusting the area so that
-            // it is draw entirely inside 'rect'
-            float penWidth = qMax(1,painter.pen().width());
+        // draw the cursor outline, adjusting the area so that
+        // it is draw entirely inside 'rect'
+        float halfStroke = qMax(1,painter.pen().width())/2.0f;
+        cursorRect.adjust(halfStroke, halfStroke, -halfStroke, -halfStroke);
 
-            painter.drawRect(cursorRect.adjusted(penWidth/2,
-                                                 penWidth/2,
-                                                 - penWidth/2,
-                                                 - penWidth/2));
+        if ( _cursorShape == Emulation::KeyboardCursorShape::BlockCursor )
+        {
             if ( hasFocus() )
             {
-                painter.fillRect(cursorRect, _cursorColor.isValid() ? _cursorColor : foregroundColor);
-
+                painter.setBrush(painter.pen().color());
                 if ( !_cursorColor.isValid() )
                 {
                     // invert the colour used to draw the text to ensure that the character at
@@ -813,17 +871,24 @@ void TerminalDisplay::drawCursor(QPainter& painter,
                     invertCharacterColor = true;
                 }
             }
-       }
-       else if ( _cursorShape == Emulation::KeyboardCursorShape::UnderlineCursor )
+            painter.drawRect(cursorRect);
+        }
+        else if ( _cursorShape == Emulation::KeyboardCursorShape::UnderlineCursor )
+        {
+            cursorRect.adjust(halfStroke, halfStroke, -halfStroke, -halfStroke);
             painter.drawLine(cursorRect.left(),
                              cursorRect.bottom(),
                              cursorRect.right(),
                              cursorRect.bottom());
-       else if ( _cursorShape == Emulation::KeyboardCursorShape::IBeamCursor )
+        }
+        else if ( _cursorShape == Emulation::KeyboardCursorShape::IBeamCursor )
+        {
+            cursorRect.adjust(halfStroke, halfStroke, -halfStroke, -halfStroke);
             painter.drawLine(cursorRect.left(),
                              cursorRect.top(),
                              cursorRect.left(),
                              cursorRect.bottom());
+        }
 
     }
 }
@@ -1120,10 +1185,9 @@ void TerminalDisplay::processFilters()
     // ScreenWindow emits a scrolled() signal - which will happen before
     // updateImage() is called on the display and therefore _image is
     // out of date at this point
-    _filterChain->setImage( _screenWindow->getImage(),
-                            _screenWindow->windowLines(),
-                            _screenWindow->windowColumns(),
-                            _screenWindow->getLineProperties() );
+    int fullCols;
+    Character *image = _screenWindow->getUncutImage(fullCols);
+    _filterChain->setImage( image, _screenWindow->windowLines(), fullCols, _screenWindow->getLineProperties() );
     _filterChain->process();
 
     QRegion postUpdateHotSpots = hotSpotRegion();
@@ -1197,7 +1261,7 @@ void TerminalDisplay::updateImage()
     }
 
     QFontMetrics fm(font());
-    if (!_resizing) // not while _resizing, we're expecting a paintEvent
+    if (!_resizing) { // not while _resizing, we're expecting a paintEvent
     for (x = 0; x < columnsToUpdate; ++x)
     {
       if ((newLine[x].rendition & RE_BLINK) != 0) {
@@ -1264,6 +1328,7 @@ void TerminalDisplay::updateImage()
         x += len - 1;
       }
 
+    }
     }
 
     //both the top and bottom halves of double height _lines must always be redrawn
@@ -1446,6 +1511,7 @@ void TerminalDisplay::leaveEvent(QEvent* event)
     gs_deadSpot = QPoint(-1,-1);
     QApplication::restoreOverrideCursor();
   }
+  clearLinkTooltip();
   QWidget::leaveEvent(event);
 }
 
@@ -1454,7 +1520,7 @@ void TerminalDisplay::paintEvent( QPaintEvent* pe )
   QPainter paint(this);
   QRect cr = contentsRect();
 
-  if ( !_backgroundImage.isNull() )
+  if (!_backgroundImage.isEmpty())
   {
     QColor background = _colorTable[DEFAULT_BACK_COLOR].color;
     if (_opacity < static_cast<qreal>(1))
@@ -1473,84 +1539,77 @@ void TerminalDisplay::paintEvent( QPaintEvent* pe )
     paint.save();
     paint.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
 
-    if (_backgroundMode == Stretch)
-    { // scale the image without keeping its proportions to fill the screen
-        paint.drawPixmap(cr, _backgroundImage, _backgroundImage.rect());
-    }
-    else if (_backgroundMode == Zoom)
-    { // zoom in/out the image to fit it
-        QRect r = _backgroundImage.rect();
-        qreal wRatio = static_cast<qreal>(cr.width()) / r.width();
-        qreal hRatio = static_cast<qreal>(cr.height()) / r.height();
-        if (wRatio > hRatio)
-        {
-            r.setWidth(qRound(r.width() * hRatio));
-            r.setHeight(cr.height());
-        }
-        else
-        {
-            r.setHeight(qRound(r.height() * wRatio));
-            r.setWidth(cr.width());
-        }
-        r.moveCenter(cr.center());
-        paint.drawPixmap(r, _backgroundImage, _backgroundImage.rect());
-    }
-    else if (_backgroundMode == Fit)
-    { // if the image is bigger than the terminal, zoom it out to fit it
-        QRect r = _backgroundImage.rect();
-        qreal wRatio = static_cast<qreal>(cr.width()) / r.width();
-        qreal hRatio = static_cast<qreal>(cr.height()) / r.height();
-        if (r.width() > cr.width())
-        {
-            if (wRatio <= hRatio)
-            {
-                r.setHeight(qRound(r.height() * wRatio));
-                r.setWidth(cr.width());
-            }
-            else
-            {
-                r.setWidth(qRound(r.width() * hRatio));
-                r.setHeight(cr.height());
-            }
-        }
-        else if (r.height() > cr.height())
-        {
-            r.setWidth(qRound(r.width() * hRatio));
-            r.setHeight(cr.height());
-        }
-        r.moveCenter(cr.center());
-        paint.drawPixmap(r, _backgroundImage, _backgroundImage.rect());
-    }
-    else if (_backgroundMode == Center)
-    { // center the image without scaling/zooming
-        QRect r = _backgroundImage.rect();
-        r.moveCenter(cr.center());
-        paint.drawPixmap(r.topLeft(), _backgroundImage);
-    }
-    else if (_backgroundMode == Fill)
-    { // zoom in/out the image to fill all empty space
-        QRect r = _backgroundImage.rect();
-        qreal wRatio = static_cast<qreal>(cr.width()) / r.width();
-        qreal hRatio = static_cast<qreal>(cr.height()) / r.height();
-        if (wRatio < hRatio)
-        {
-            r.setWidth(qRound(r.width() * hRatio));
-            r.setHeight(cr.height());
-        }
-        else
-        {
-            r.setHeight(qRound(r.height() * wRatio));
-            r.setWidth(cr.width());
-        }
-        r.moveCenter(cr.center());
-        paint.drawPixmap(r, _backgroundImage, _backgroundImage.rect());
-    }
-    else //if (_backgroundMode == None)
+    if (!(_scrollbarLocation == QTermWidget::NoScrollBar ||
+          _scrollBar->style()->styleHint(QStyle::SH_ScrollBar_Transient, nullptr, _scrollBar)))
     {
-        paint.drawPixmap(0, 0, _backgroundImage);
+        const int sw = _scrollBar->width();
+        if (_scrollbarLocation == QTermWidget::ScrollBarRight)
+            cr.setRight(cr.right() - sw);
+        else if (_scrollbarLocation == QTermWidget::ScrollBarLeft)
+            cr.setLeft(cr.left() + sw);
     }
 
+    QPixmap pix = gs_backgroundCache.pixmap(_backgroundImage);
+    QRect bgr = pix.rect();
+    switch (_backgroundMode)
+    {
+        case Stretch:
+        { // scale the image without keeping its proportions to fill the screen
+            bgr = cr;
+            break;
+        }
+        case Zoom:
+            // zoom in/out the image to fit it
+            [[fallthrough]];
+        case Fill:
+            // zoom in/out the image to fill all empty space
+            [[fallthrough]];
+        case Fit:
+        { // if the image is bigger than the terminal, zoom it out to fit it
+            if (_backgroundMode != Fit || bgr.width() > cr.width() || bgr.height() > cr.height())
+            {
+                qreal wRatio = static_cast<qreal>(cr.width()) / bgr.width();
+                qreal hRatio = static_cast<qreal>(cr.height()) / bgr.height();
+                if ((_backgroundMode != Fill && wRatio > hRatio) ||
+                    (_backgroundMode == Fill && wRatio < hRatio))
+                {
+                    bgr.setWidth(qRound(bgr.width() * hRatio));
+                    bgr.setHeight(cr.height());
+                }
+                else
+                {
+                    bgr.setHeight(qRound(bgr.height() * wRatio));
+                    bgr.setWidth(cr.width());
+                }
+            }
+            bgr.moveCenter(cr.center());
+            break;
+        }
+        // position the image without scaling/zooming
+        case Center:        bgr.moveCenter(cr.center());            break;
+        case TopLeft:       bgr.moveTopLeft(cr.topLeft());          break;
+        case TopRight:      bgr.moveTopRight(cr.topRight());        break;
+        case BottomLeft:    bgr.moveBottomLeft(cr.bottomLeft());    break;
+        case BottomRight:   bgr.moveBottomRight(cr.bottomRight());  break;
+        case Tiled:
+        {
+            paint.setBrush(pix);
+            paint.setBrushOrigin(cr.topLeft());
+            break;
+        }
+        case None:
+            bgr.moveTopLeft(cr.topLeft());
+            [[fallthrough]];
+        default:
+            break;
+    }
+
+    if (_backgroundMode == Tiled)
+        paint.drawRect(cr);
+    else
+        paint.drawPixmap(bgr, pix, pix.rect());
     paint.restore();
+    cr = contentsRect();
   }
 
   if(_drawTextTestFlag)
@@ -1961,8 +2020,12 @@ QRect TerminalDisplay::imageToWidget(const QRect& imageArea) const
 
 void TerminalDisplay::updateCursor()
 {
-  QRect cursorRect = imageToWidget( QRect(cursorPosition(),QSize(1,1)) );
-  update(cursorRect);
+    QPoint cPos = cursorPosition();
+    int cWidth = 1;
+    if (_image && _image[ qMin(loc(cPos.x(),cPos.y())+1,_imageSize) ].character == 0)
+        cWidth = 2;
+    QRect cursorRect = imageToWidget( QRect(cPos,QSize(cWidth,1)) );
+    update(cursorRect);
 }
 
 void TerminalDisplay::blinkCursorEvent()
@@ -2313,12 +2376,41 @@ void TerminalDisplay::mouseMoveEvent(QMouseEvent* ev)
     }
 
     update( _mouseOverHotspotArea | previousHotspotArea );
+
+    if (_linkTooltipsEnabled) {
+        const QString tip = spot->tooltip();
+        const QPoint globalPos = ev->globalPosition().toPoint();
+        if (tip.isEmpty()) {
+            clearLinkTooltip();
+        } else if (tip == _pendingLinkTooltip) {
+            // Still on the same link: keep the pending position up to date.
+            _pendingLinkTooltipPos = globalPos;
+            if (QToolTip::isVisible())
+                QToolTip::showText(globalPos, tip, this);
+        } else {
+            // New link under the cursor: wait before showing (intentional hover).
+            _pendingLinkTooltip = tip;
+            _pendingLinkTooltipPos = globalPos;
+            QToolTip::hideText();
+            // Snappier than the desktop default (~700ms), but still long enough
+            // that fast mouse sweeps over links do not pop a tip.
+            int delay = style()->styleHint(QStyle::SH_ToolTip_WakeUpDelay, nullptr, this);
+            if (delay < 0)
+                delay = 400;
+            else
+                delay = qMin(delay, 400);
+            _linkTooltipTimer->start(delay);
+        }
+    }
   }
   else if ( !_mouseOverHotspotArea.isEmpty() )
   {
         update( _mouseOverHotspotArea );
         // set hotspot area to an invalid rectangle
         _mouseOverHotspotArea = QRegion();
+        clearLinkTooltip();
+  } else {
+        clearLinkTooltip();
   }
 
   // for auto-hiding the cursor, we need mouseTracking
@@ -2596,7 +2688,7 @@ void TerminalDisplay::getCharacterPosition(const QPointF& widgetPoint,int& line,
     if (line >= _usedLines)
         line = _usedLines - 1;
 
-    int x = widgetPoint.x() + _fontWidth / 2 - contentsRect().left() - _leftMargin;
+    int x = widgetPoint.x() + _fontWidth / 2.0 - contentsRect().left() - _leftMargin;
     if ( _fixedFont )
         column = x / _fontWidth;
     else
@@ -2928,7 +3020,7 @@ void TerminalDisplay::wheelEvent( QWheelEvent* ev )
   if ( _mouseMarks )
   {
     bool canScroll = _scrollBar->maximum() > 0;
-      if (canScroll)
+    if (canScroll)
         _scrollBar->event(ev);
     else
     {
@@ -3144,6 +3236,7 @@ void TerminalDisplay::bracketText(QString& text) const
 {
     if (bracketedPasteMode() && !_disabledBracketedPasteMode)
     {
+        text.replace(QLatin1String("\033[201~"), QLatin1String("\\033[201~"));
         text.prepend(QLatin1String("\033[200~"));
         text.append(QLatin1String("\033[201~"));
     }
@@ -3207,6 +3300,33 @@ void TerminalDisplay::setConfirmMultilinePaste(bool confirmMultilinePaste) {
 
 void TerminalDisplay::setTrimPastedTrailingNewlines(bool trimPastedTrailingNewlines) {
     _trimPastedTrailingNewlines = trimPastedTrailingNewlines;
+}
+
+void TerminalDisplay::setLinkTooltipsEnabled(bool enabled)
+{
+    _linkTooltipsEnabled = enabled;
+    if (!enabled)
+        clearLinkTooltip();
+}
+
+bool TerminalDisplay::linkTooltipsEnabled() const
+{
+    return _linkTooltipsEnabled;
+}
+
+void TerminalDisplay::clearLinkTooltip()
+{
+    if (_linkTooltipTimer)
+        _linkTooltipTimer->stop();
+    _pendingLinkTooltip.clear();
+    QToolTip::hideText();
+}
+
+void TerminalDisplay::showPendingLinkTooltip()
+{
+    if (!_linkTooltipsEnabled || _pendingLinkTooltip.isEmpty())
+        return;
+    QToolTip::showText(_pendingLinkTooltipPos, _pendingLinkTooltip, this);
 }
 
 /* ------------------------------------------------------------------------- */

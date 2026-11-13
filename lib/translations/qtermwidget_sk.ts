@@ -4,50 +4,66 @@
 <context>
     <name>Konsole::Session</name>
     <message>
-        <location filename="../Session.cpp" line="481"/>
+        <location filename="../Session.cpp" line="489"/>
         <source>Bell in session &apos;%1&apos;</source>
         <translation>Zvonček v relácií &apos;%1&apos;</translation>
     </message>
     <message>
-        <location filename="../Session.cpp" line="663"/>
+        <location filename="../Session.cpp" line="694"/>
         <source>Session &apos;%1&apos; exited with code %2.</source>
         <translation>Relácia &apos;%1&apos; bola ukončená s kódom %2.</translation>
     </message>
     <message>
-        <location filename="../Session.cpp" line="665"/>
+        <location filename="../Session.cpp" line="695"/>
         <source>Session &apos;%1&apos; crashed.</source>
         <translation>Relácia &apos;%1&apos; spadla.</translation>
     </message>
     <message>
-        <location filename="../Session.cpp" line="670"/>
+        <location filename="../Session.cpp" line="707"/>
+        <source>Exited Unexpectedly</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Session.cpp" line="691"/>
         <source>Session &apos;%1&apos; exited unexpectedly.</source>
         <translation>Relácia &apos;%1&apos; bola neočakávane ukončená.</translation>
+    </message>
+    <message>
+        <location filename="../Session.cpp" line="698"/>
+        <source>
+Do you want to save the scrollback buffer?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../Session.cpp" line="711"/>
+        <source>Save history</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>Konsole::TerminalDisplay</name>
     <message>
-        <location filename="../TerminalDisplay.cpp" line="1312"/>
+        <location filename="../TerminalDisplay.cpp" line="1391"/>
         <source>Size: XXX x XXX</source>
         <translation>Veľkosť: XXX x XXX</translation>
     </message>
     <message>
-        <location filename="../TerminalDisplay.cpp" line="1324"/>
+        <location filename="../TerminalDisplay.cpp" line="1403"/>
         <source>Size: %1 x %2</source>
         <translation>Veľkosť: %1 x %2</translation>
     </message>
     <message>
-        <location filename="../TerminalDisplay.cpp" line="2989"/>
+        <location filename="../TerminalDisplay.cpp" line="3229"/>
         <source>Paste multiline text</source>
         <translation>Prilepiť viacriadkový text</translation>
     </message>
     <message>
-        <location filename="../TerminalDisplay.cpp" line="2990"/>
+        <location filename="../TerminalDisplay.cpp" line="3230"/>
         <source>Are you sure you want to paste this text?</source>
         <translation>Prajete si prilepiť tento text?</translation>
     </message>
     <message>
-        <location filename="../TerminalDisplay.cpp" line="3462"/>
+        <location filename="../TerminalDisplay.cpp" line="3728"/>
         <source>&lt;qt&gt;Output has been &lt;a href=&quot;http://en.wikipedia.org/wiki/Flow_control&quot;&gt;suspended&lt;/a&gt; by pressing Ctrl+S.  Press &lt;b&gt;Ctrl+Q&lt;/b&gt; to resume.&lt;/qt&gt;</source>
         <translation>&lt;qt&gt;Výstup bol &lt;a href=&quot;http://en.wikipedia.org/wiki/Flow_control&quot;&gt;pozastavený&lt;/a&gt; stlačením Ctrl+S.  Stlačte&lt;b&gt;Ctrl+Q&lt;/b&gt; pre opätovné spustenie.&lt;/qt&gt;</translation>
     </message>
@@ -55,7 +71,7 @@
 <context>
     <name>Konsole::Vt102Emulation</name>
     <message>
-        <location filename="../Vt102Emulation.cpp" line="1150"/>
+        <location filename="../Vt102Emulation.cpp" line="1308"/>
         <source>No keyboard translator available.  The information needed to convert key presses into characters to send to the terminal is missing.</source>
         <translation>Prekladač klávesnice nie je dostupný. Chýbajú preto informácie potrebné na prevod kódov stlačených kláves na znaky poslané na terminál.</translation>
     </message>
@@ -63,7 +79,7 @@
 <context>
     <name>QMessageBox</name>
     <message>
-        <location filename="../TerminalDisplay.cpp" line="2996"/>
+        <location filename="../TerminalDisplay.cpp" line="3236"/>
         <source>Show Details...</source>
         <translation>Zobraziť podrobnosti...</translation>
     </message>
@@ -82,22 +98,24 @@
         <translation>Farebná schéma pre zjednodušený prístup</translation>
     </message>
     <message>
-        <location filename="../Filter.cpp" line="603"/>
+        <location filename="../Filter.cpp" line="635"/>
+        <location filename="../Filter.cpp" line="837"/>
         <source>Open Link</source>
         <translation>Otvoriť odkaz</translation>
     </message>
     <message>
-        <location filename="../Filter.cpp" line="604"/>
+        <location filename="../Filter.cpp" line="636"/>
+        <location filename="../Filter.cpp" line="838"/>
         <source>Copy Link Address</source>
         <translation>Kopírovať adresu odkazu</translation>
     </message>
     <message>
-        <location filename="../Filter.cpp" line="608"/>
+        <location filename="../Filter.cpp" line="640"/>
         <source>Send Email To...</source>
         <translation>Poslať email na adresu...</translation>
     </message>
     <message>
-        <location filename="../Filter.cpp" line="609"/>
+        <location filename="../Filter.cpp" line="641"/>
         <source>Copy Email Address</source>
         <translation>Kopírovať e-mailovú adresu</translation>
     </message>
@@ -105,12 +123,12 @@
 <context>
     <name>QTermWidget</name>
     <message>
-        <location filename="../qtermwidget.cpp" line="481"/>
+        <location filename="../qtermwidget.cpp" line="486"/>
         <source>Color Scheme Error</source>
         <translation>Chyba vo farebnej schéme</translation>
     </message>
     <message>
-        <location filename="../qtermwidget.cpp" line="482"/>
+        <location filename="../qtermwidget.cpp" line="487"/>
         <source>Cannot load color scheme: %1</source>
         <translation>Nepodarilo sa načítať schému: %1</translation>
     </message>
